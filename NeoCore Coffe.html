@@ -1,0 +1,111 @@
+<?php
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit();
+}
+
+$host = "localhost"; $user = "root"; $pass = ""; $db = "neocore_cafe";
+$conn = new mysqli($host, $user, $pass, $db);
+
+// PROSES TAMBAH STOK
+if (isset($_POST['update_stock'])) {
+    $id = $_POST['inventory_id'];
+    $added_qty = $_POST['added_quantity'];
+    $conn->query("UPDATE inventories SET quantity = quantity + $added_qty WHERE id = $id");
+    header("Location: inventory.php");
+}
+
+// PROSES HAPUS ITEM (FITUR BARU)
+if (isset($_GET['delete'])) {
+    $id = $_GET['delete'];
+    $conn->query("DELETE FROM inventories WHERE id = $id");
+    echo "<script>alert('Item berhasil dihapus dari inventory!'); window.location='inventory.php';</script>";
+}
+
+$inventories = $conn->query("SELECT * FROM inventories ORDER BY item_name ASC");
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Neo Core Coffee - Inventory Gudang</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container" style="max-width: 1100px; margin-top: 30px;">
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 15px; border-bottom: 1px solid #edf2f7;">
+            <div>
+                <h2 style="margin: 0; font-family: 'Georgia', serif; color: #1a202c;">Logistik & Inventory Gudang</h2>
+                <p style="margin: 4px 0 0 0; color: #718096; font-size: 0.9rem;">Pantau ketersediaan bahan baku dan kelola daftar stok</p>
+            </div>
+            <a href="index.php" class="btn btn-secondary">← Menu Utama</a>
+        </div>
+
+        <div style="display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start;">
+            
+            <div class="pos-form" style="flex: 1; min-width: 300px; padding: 25px;">
+                <h3 style="margin-top: 0; margin-bottom: 20px; color: #1a202c; font-size: 1.15rem;">Input Pasokan Masuk</h3>
+                <form action="inventory.php" method="POST">
+                    <label>Pilih Bahan Baku:</label>
+                    <select name="inventory_id" required>
+                        <option value="" disabled selected>-- Pilih Bahan Baku --</option>
+                        <?php 
+                        $dropdown = $conn->query("SELECT id, item_name, unit FROM inventories ORDER BY item_name ASC");
+                        while($item = $dropdown->fetch_assoc()): 
+                        ?>
+                            <option value="<?php echo $item['id']; ?>"><?php echo $item['item_name']; ?> (<?php echo $item['unit']; ?>)</option>
+                        <?php endwhile; ?>
+                    </select>
+                    <label>Jumlah Tambahan:</label>
+                    <input type="number" name="added_quantity" min="1" required>
+                    <button type="submit" name="update_stock" class="btn btn-primary" style="width: 100%; background: #111827;">Simpan Stok Masuk</button>
+                </form>
+            </div>
+
+            <div style="flex: 2; min-width: 500px; background: #ffffff; padding: 25px; border-radius: 14px; border: 1px solid #edf2f7;">
+                <h3 style="margin-top: 0; margin-bottom: 20px; color: #1a202c; font-size: 1.15rem;">Status Logistik</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Bahan Baku</th>
+                            <th>Stok</th>
+                            <th>Batas Min</th>
+                            <th>Status</th>
+                            <th style="text-align: center;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php while($row = $inventories->fetch_assoc()): 
+                            $is_low = ($row['quantity'] <= $row['low_stock_threshold']);
+                        ?>
+                            <tr>
+                                <td style="font-weight: 700; color: #1a202c;"><?php echo $row['item_name']; ?></td>
+                                <td style="font-weight: bold; color: <?php echo $is_low ? '#e53e3e' : '#2d3748'; ?>;">
+                                    <?php echo $row['quantity'] . ' ' . $row['unit']; ?>
+                                </td>
+                                <td style="color: #718096;"><?php echo $row['low_stock_threshold'] . ' ' . $row['unit']; ?></td>
+                                <td>
+                                    <?php if($is_low): ?>
+                                        <span style="background: #fee2e2; color: #dc2626; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">⚠️ Restock</span>
+                                    <?php else: ?>
+                                        <span style="background: #dcfce7; color: #15803d; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">✓ Aman</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td style="text-align: center;">
+                                    <a href="inventory.php?delete=<?php echo $row['id']; ?>" 
+                                       onclick="return confirm('Yakin ingin menghapus bahan <?php echo $row['item_name']; ?>?')" 
+                                       style="color: #dc2626; font-size: 0.8rem; font-weight: bold; text-decoration: none; padding: 5px 10px; background: #fff1f2; border-radius: 6px;">
+                                       Hapus
+                                    </a>
+                                </td>
+                            </tr>
+                        <?php endwhile; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
